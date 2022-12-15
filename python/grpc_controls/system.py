@@ -1,22 +1,26 @@
 from abc import ABC, abstractmethod, abstractproperty
-from typing import Iterable, List, Mapping, Union, Optional, Set
+from typing import Iterable, List, Mapping, Union, Optional, Set, Protocol
 import sys
 import subprocess
 import requests
 
 
 
-class Module(ABC):
+class Module(Protocol):
     @abstractmethod
     def run(self, *args, **kwargs):
         pass
+
+    @property
+    def name():
+        return self._name
 
 class PythonModule(Module):
     def run(self, name, *args, **kwargs):
         subprocess.run((sys.executable, '-m', name))
 
 class BaseStationModule(Module):
-    def __init__(self, host, port, cmds: Optional[Set[str]] = None, *args, **kwargs):
+    def __init__(self, host: str, port: str, cmds: Optional[Set[str]] = None, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
         self.host, self.port = host, port
         self.cmds = cmds if not None else set()
