@@ -7,13 +7,12 @@ import requests
 
 
 class Module(Protocol):
+
     @abstractmethod
     def run(self, *args, **kwargs):
         pass
 
-    @property
-    def name():
-        return self._name
+    
 
 class PythonModule(Module):
     def run(self, name, *args, **kwargs):
