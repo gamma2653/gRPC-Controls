@@ -9,16 +9,63 @@ import requests
 class Module(Protocol):
 
     @abstractmethod
-    def run(self, *args, **kwargs):
+    def run(self, *args, **kwargs) -> bool:
         pass
 
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @name.setter
+    def set_name(self, name) -> None:
+        pass
+    
+    @abstractmethod
+    def start(self):
+        pass
+
+    @abstractmethod
+    def stop(self):
+        pass
+
+    @abstractmethod
+    def __enter__(self):
+        self.start()
+
+    @abstractmethod
+    def __exit__(self, *args):
+        self.stop()
+
+
+class Nested(Protocol):
+
+    @property
+    @abstractmethod
+    def parent(self) -> Module:
+        pass
+    
+    @parent.setter
+    def set_parent(self) -> None:
+        pass
+
+    @property
+    @abstractmethod
+    def children(self) -> 'Nested':
+        pass
+
+    @children.setter
+    def set_children(self, children):
+        pass
     
 
-class PythonModule(Module):
+
+
+class PythonModule():
     def run(self, name, *args, **kwargs):
         subprocess.run((sys.executable, '-m', name))
 
-class BaseStationModule(Module):
+class BaseStationModule():
     def __init__(self, host: str, port: str, cmds: Optional[Set[str]] = None, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
         self.host, self.port = host, port
@@ -29,7 +76,7 @@ class BaseStationModule(Module):
             return
         requests.get(f'{self.host}:{self.port}/{cmd}', params)
 
-class System(ABC):
+class System():
 
     _modules: List[Module] = []
 
