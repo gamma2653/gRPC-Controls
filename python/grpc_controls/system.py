@@ -85,14 +85,12 @@ class Module(Protocol):
         """
         pass
 
-    @abstractmethod
     def __enter__(self) -> 'Module':
         """
         Enter
         """
         self.start()
 
-    @abstractmethod
     def __exit__(self, *args) -> None:
         """
         Exit
@@ -104,13 +102,16 @@ class Nested(Protocol):
     """
     A type that allows for traversal of parent and children relationships (a tree).
     """
+
+    _parent: 'Nested'
+
     @property
     @abstractmethod
     def parent(self) -> 'Nested':
         """
         The parent of the current object.
         """
-        pass
+        return self._parent
     
     @parent.setter
     def adopt(self, p: 'Nested') -> None:
@@ -120,9 +121,9 @@ class Nested(Protocol):
         p
             - The new parent.
         """
-        old_parent = self.parent
+        old_parent = self._parent
 
-        self.parent = p
+        self._parent = p
         old_parent.children.remove(self)
         p.children.append(self)
 
@@ -236,5 +237,15 @@ class System(ABC):
     def modules(self, modules_ : Iterable[Module]):
         self._modules.clear()
         self._modules.extend(modules_)
+
+
+    @abstractmethod
+    def start(self):
+        pass
+
+    @abstractmethod
+    def stop(self):
+        pass
+
 
 
