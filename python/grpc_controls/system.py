@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Iterable, List, Optional, Set, Protocol
 import sys
 import subprocess
+from threading import Thread
 import requests
 import time
 
@@ -11,18 +12,16 @@ class Module(Protocol):
     """
     Specifies the following methods. See the function's docs to see more info.
     
-    run(
-        self
-        *args
-            - Args to pass the Module as it initiates execution.
-        **kwargs
-            - Keyword args to pass to the Module as it initiates execution.
-    )
+    ATTRIBUTES
+    ----------
+    name
+        - The name property.
+
+    METHODS
+    -------
+    run(*args, **kwargs)
         - This method will initiate the execution of the appropriate model upon execution,
-        within the appropriate context.
-    
-    prop name()
-        - The name property must be defined.
+          within the appropriate context.
     
     start()
         - Start the module. Usually automatically called upon context set up.
@@ -32,11 +31,11 @@ class Module(Protocol):
     
     __enter__()
         - Defined to explictily have protocols implement the context functions.
-        Called when entering the Module context.
+          Called when entering the Module context.
     
     __exit__()
         - Defined to explictily have protocols implement the context functions.
-        Called when exiting the Module context.
+          Called when exiting the Module context.
 
     """
 
@@ -46,10 +45,10 @@ class Module(Protocol):
         Called to execute a command.
 
         *args
-            - The args to pass to the command.
+            - The positional arguments to pass the Module as it initiates execution.
         
         **kwargs
-            - The key word args to pass to the command.
+            - The key word arguments to pass to the command.
         """
         pass
 
@@ -57,7 +56,7 @@ class Module(Protocol):
     @abstractmethod
     def name(self) -> str:
         """
-        The name property of the function.
+        The name property of the Module.
         """
         pass
 
@@ -142,19 +141,77 @@ class Nested(Protocol):
         """
         pass
     
-
-
-
 class PythonModule(Module):
-    def run(self, name, *args, **kwargs) -> bool:
-        subprocess.run((sys.executable, '-m', name))
+    class Launcher(Thread):
+        _result = None
+        """
+        Used to asynchronously launch the python module.
+        """
+        module: 'PythonModule'
+        def __init__(self, module: 'PythonModule'):
+            self.module = module
+
+        def run(self):
+            self.module.run()
+        
+        @property
+        def result(self):
+            try:
+                return self._result
+            finally:
+                self._result = None
+        
+        @result.setter
+        def result(self, value):
+            self._result = value
+
+    def __init__(self, name, *args, exec: str = sys.executable, **kwargs):
+        """
+        PARAMETERS
+        ----------
+        name
+            The name of the python module to be started.
+        args
+            These args are automatically passed to the python module.
+        exec
+            (kwarg) The python executable. Defaults to current executable
+        kwargs
+            These keywords args are automatically passed to the python module.
+        """
+        self.name, self.exec, self.args, self.kwargs = name, exec, args, kwargs
+        self.launcher = PythonModule.Launcher(self)
+
+    def run(self, async_: bool = True) -> bool:
+        '''
+        Runs the module. (Please override pydoc)
+        
+        RETURNS
+        -------
+        bool -
+            Whether the process successfully returned or not
+        '''
+        if async_:
+            self.launcher.start()
+        return 
 
     @property
     def name(self) -> str:
+        """
+        The name of the python module to be started.
+        """
         return self._name
 
     @name.setter
     def set_name(self, name: str) -> None:
+        """
+        Name setter
+
+        PARAMETERS
+        ----------
+        name
+            The full, dot-separated module name. For example, if we had a Module named
+            `FacialRecModule` located in the my.facerec package, the full name would be my.facerec.FacialRecModule.
+        """
         self._name = name
 
     def start(self) -> None:
@@ -170,7 +227,7 @@ class PythonModule(Module):
         return None
 
 
-class BaseStationModule(Module):
+class ExternServerModule(Module):
     def __init__(self, host: str, port: str, cmds: Optional[Set[str]] = None, *args, **kwargs):
         super().__init__(self, *args, **kwargs)
         self.host, self.port = host, port
@@ -196,15 +253,15 @@ class BaseStationModule(Module):
         pass
     
     def _check_connection(self, notify=True):
-        ping_start = time.time()
+        ping_start = time.time_ns()
         params = {
             'ping_start': ping_start,
             'notify': notify
         }
         r = requests.get(f'{self.host}:{self.port}/test_connection', params=params)
         r.raise_for_status()
-        latency = float(r.json()['ping_end']) - ping_start
-        return latency
+        # latency
+        return time.time_ns() - ping_start
 
     def __enter__(self):
         self._check_connection()
